@@ -12,17 +12,17 @@ func (f FooProcessor) Process() bool {
 }
 
 func (f FooProcessor) DiGoProvide(name FooName) FooProcessor {
-	return FooProcessor{name.Name()}
+	return FooProcessor{string(name)}
 }
 
-type FooName struct {
-	name string
-}
+type FooName string
 
 func (f FooName) DiGoProvide() FooName {
-	return FooName{name: "DiGo"}
+	return "DiGo"
 }
 
-func (f FooName) Name() string {
-	return f.name
+type BarName string
+
+func (f BarName) DiGoProvide() BarName {
+	return "DiGoGo"
 }
