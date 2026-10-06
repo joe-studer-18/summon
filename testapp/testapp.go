@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/digo"
 	"github.com/testapp/processors"
 )
@@ -12,13 +10,10 @@ type Processor interface {
 }
 
 func main() {
-	// TODO - Add injector object to support singletons
-	// inj := digo.New()
-
-	fmt.Printf("Name: %s\n", digo.Get[processors.FooName]())
+	inj := digo.Injector{}
 
 	procs := []Processor{
-		digo.Get[processors.FooProcessor](),
+		inj.Get[processors.FooProcessor](),
 	}
 
 	for _, proc := range procs {

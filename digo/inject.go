@@ -7,8 +7,10 @@ import (
 
 const provideMethodName = "DiGoProvide"
 
-func Get[T any]() T {
-	returnable, ok := toValue[T](get(reflect.TypeFor[T]()))
+type Injector struct{}
+
+func (inj *Injector) Get[T any]() T {
+	returnable, ok := toValue[T](inj.get(reflect.TypeFor[T]()))
 	if !ok {
 		errString := fmt.Sprintf("%s.%s does not return a type of %s", *new(T), provideMethodName, *new(T))
 		panic(errString)
@@ -18,7 +20,7 @@ func Get[T any]() T {
 
 // Worth noting that this works for hard types - but if I instead take
 // an interface as a param I wouldn't be able to realize it
-func get(t reflect.Type) reflect.Value {
+func (inj *Injector) get(t reflect.Type) reflect.Value {
 	provideable := reflect.New(t)
 	providerMethod := provideable.MethodByName(provideMethodName)
 	if !providerMethod.IsValid() {
@@ -34,7 +36,7 @@ func get(t reflect.Type) reflect.Value {
 	}
 	for i := range numArgs {
 		argType := providerMethod.Type().In(i)
-		args[i] = get(argType)
+		args[i] = inj.get(argType)
 	}
 	return providerMethod.Call(args)[0]
 }
