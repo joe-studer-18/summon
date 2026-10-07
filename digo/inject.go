@@ -1,44 +1,59 @@
 package digo
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
 
 const provideMethodName = "DiGoProvide"
+const invalidReturnTypeErr = "%s.%s does not return a type of %s"
+
+var ErrInvalidReturnType = errors.New("invalid return type")
 
 type Injector struct{}
 
-func (inj *Injector) Get[T any]() T {
-	returnable, ok := toValue[T](inj.get(reflect.TypeFor[T]()))
-	if !ok {
-		errString := fmt.Sprintf("%s.%s does not return a type of %s", *new(T), provideMethodName, *new(T))
-		panic(errString)
+func (inj *Injector) Get[T any]() (T, error) {
+	got, err := inj.get(reflect.TypeFor[T]())
+	if err != nil {
+		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
+		var zero T
+		return zero, fmt.Errorf("%w: %s", ErrInvalidReturnType, errString)
 	}
-	return returnable
+	returnable, ok := toValue[T](got)
+	if !ok {
+		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
+		var zero T
+		return zero, fmt.Errorf("%w: %s", ErrInvalidReturnType, errString)
+	}
+	return returnable, nil
 }
 
 // Worth noting that this works for hard types - but if I instead take
 // an interface as a param I wouldn't be able to realize it
-func (inj *Injector) get(t reflect.Type) reflect.Value {
+func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
 	provideable := reflect.New(t)
 	providerMethod := provideable.MethodByName(provideMethodName)
 	if !providerMethod.IsValid() {
 		errString := fmt.Sprintf("%s not implemented for type T <%s>", provideMethodName, provideable.String())
-		panic(errString)
+		return reflect.Value{}, errors.New(errString)
 	}
 
 	numArgs := providerMethod.Type().NumIn()
 	args := make([]reflect.Value, numArgs)
 	if numArgs == 0 {
 		rawReturnable := providerMethod.Call(args)
-		return rawReturnable[0]
+		return rawReturnable[0], nil
 	}
 	for i := range numArgs {
 		argType := providerMethod.Type().In(i)
-		args[i] = inj.get(argType)
+		var err error
+		args[i], err = inj.get(argType)
+		if err != nil {
+			return reflect.Value{}, err
+		}
 	}
-	return providerMethod.Call(args)[0]
+	return providerMethod.Call(args)[0], nil
 }
 
 func toValue[T any](v reflect.Value) (T, bool) {
