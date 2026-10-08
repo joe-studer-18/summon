@@ -29,8 +29,6 @@ func (inj *Injector) Get[T any]() (T, error) {
 	return returnable, nil
 }
 
-// Worth noting that this works for hard types - but if I instead take
-// an interface as a param I wouldn't be able to realize it
 func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
 	provideable := reflect.New(t)
 	providerMethod := provideable.MethodByName(provideMethodName)
@@ -48,6 +46,9 @@ func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
 	for i := range numArgs {
 		argType := providerMethod.Type().In(i)
 		var err error
+		if a, ok := bindMap[argType]; ok {
+			argType = a
+		}
 		args[i], err = inj.get(argType)
 		if err != nil {
 			return reflect.Value{}, err
