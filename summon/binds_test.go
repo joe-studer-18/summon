@@ -16,37 +16,37 @@ func (a BindsAnImplementation) Do() string {
 	return "BindsAnImplementation"
 }
 
-func (a BindsAnImplementation) DiGoProvide() BindsAnImplementation {
+func (a BindsAnImplementation) Summon() BindsAnImplementation {
 	return BindsAnImplementation{}
 }
 
 type NestedDepOnInterface struct{}
 
-func (n NestedDepOnInterface) DiGoProvide(i BindsAnInterface) NestedDepOnInterface {
+func (n NestedDepOnInterface) Summon(i BindsAnInterface) NestedDepOnInterface {
 	return NestedDepOnInterface{}
 }
 
 func TestBinds(t *testing.T) {
-	inj := Injector{}
+	circle := Circle{}
 
 	tests := []struct {
-		name     string
-		runBind  func() error
-		runGet   func() (any, error)
-		wantType reflect.Type
-		wantErr  error
+		name      string
+		runBind   func() error
+		runSummon func() (any, error)
+		wantType  reflect.Type
+		wantErr   error
 	}{
 		{
-			name:     "ok",
-			runBind:  func() error { return Binds[BindsAnInterface, BindsAnImplementation]() },
-			runGet:   func() (any, error) { return inj.Get[BindsAnInterface]() },
-			wantType: reflect.TypeOf(BindsAnImplementation{}),
+			name:      "ok",
+			runBind:   func() error { return Binds[BindsAnInterface, BindsAnImplementation]() },
+			runSummon: func() (any, error) { return circle.Summon[BindsAnInterface]() },
+			wantType:  reflect.TypeOf(BindsAnImplementation{}),
 		},
 		{
-			name:     "Bind nested dep on an interface",
-			runBind:  func() error { return Binds[BindsAnInterface, BindsAnImplementation]() },
-			runGet:   func() (any, error) { return inj.Get[NestedDepOnInterface]() },
-			wantType: reflect.TypeOf(NestedDepOnInterface{}),
+			name:      "Bind nested dep on an interface",
+			runBind:   func() error { return Binds[BindsAnInterface, BindsAnImplementation]() },
+			runSummon: func() (any, error) { return circle.Summon[NestedDepOnInterface]() },
+			wantType:  reflect.TypeOf(NestedDepOnInterface{}),
 		},
 		{
 			name: "Bind fails on collision",
@@ -57,8 +57,8 @@ func TestBinds(t *testing.T) {
 				}
 				return Binds[BindsAnInterface, string]()
 			},
-			runGet:  func() (any, error) { return inj.Get[NestedDepOnInterface]() },
-			wantErr: ErrBindCollision,
+			runSummon: func() (any, error) { return circle.Summon[NestedDepOnInterface]() },
+			wantErr:   ErrBindCollision,
 		},
 	}
 	for _, tc := range tests {
@@ -66,20 +66,20 @@ func TestBinds(t *testing.T) {
 			err := tc.runBind()
 			if err != nil {
 				if !errors.Is(err, tc.wantErr) {
-					t.Errorf("got error (%v), wanted (%v)", err, tc.wantErr)
+					t.Errorf("summoned error (%v), wanted (%v)", err, tc.wantErr)
 				}
 			} else {
-				got, err := tc.runGet()
+				summoned, err := tc.runSummon()
 
 				if err != nil {
 					if !errors.Is(err, tc.wantErr) {
-						t.Errorf("got error (%v), wanted (%v)", err, tc.wantErr)
+						t.Errorf("summoned error (%v), wanted (%v)", err, tc.wantErr)
 					}
 				} else {
-					gotType := reflect.TypeOf(got)
+					summonedType := reflect.TypeOf(summoned)
 
-					if gotType != tc.wantType {
-						t.Errorf("Get returned type %s, %s expected", gotType, tc.wantType)
+					if summonedType != tc.wantType {
+						t.Errorf("Summon returned type %s, %s expected", summonedType, tc.wantType)
 					}
 				}
 			}
