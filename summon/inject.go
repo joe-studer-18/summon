@@ -34,6 +34,10 @@ func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
 		t = bindMap[t]
 	}
 	provideable := reflect.New(t)
+	if t.Kind() == reflect.Pointer {
+		// Strip the outer pointer off before making the provideable
+		provideable = reflect.New(t.Elem())
+	}
 	providerMethod := provideable.MethodByName(provideMethodName)
 	if !providerMethod.IsValid() {
 		errString := fmt.Sprintf("%s not implemented for type T <%s>", provideMethodName, provideable.String())

@@ -40,6 +40,12 @@ func (f LeafNode) DiGoProvide() LeafNode {
 	return "DiGo"
 }
 
+type Pointer struct{}
+
+func (p *Pointer) DiGoProvide() *Pointer {
+	return new(Pointer{})
+}
+
 func TestGet(t *testing.T) {
 	var _ = Binds[AnInterface, AnImplementation]()
 
@@ -65,6 +71,11 @@ func TestGet(t *testing.T) {
 			name:     "Get nested deps",
 			wantType: reflect.TypeOf(RootNode{}),
 			runGet:   func() (any, error) { return inj.Get[RootNode]() },
+		},
+		{
+			name:     "Get pointer",
+			wantType: reflect.TypeOf(new(Pointer{})),
+			runGet:   func() (any, error) { return inj.Get[*Pointer]() },
 		},
 	}
 	for _, tc := range tests {
