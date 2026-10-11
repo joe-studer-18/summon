@@ -1,4 +1,4 @@
-package digo
+package summon
 
 import (
 	"errors"
