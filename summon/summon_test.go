@@ -1,6 +1,7 @@
 package summon
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"reflect"
@@ -42,14 +43,20 @@ func (f LeafNode) Summon() LeafNode {
 
 type Pointer struct{}
 
-func (p *Pointer) Summon() *Pointer {
-	return new(Pointer{})
+type TwoSummonMethods struct{}
+
+func (t TwoSummonMethods) Summon() TwoSummonMethods {
+	return TwoSummonMethods{}
+}
+
+func (t *TwoSummonMethods) SummonSingleton() *TwoSummonMethods {
+	return new(TwoSummonMethods{})
 }
 
 func TestSummon(t *testing.T) {
 	var _ = Binds[AnInterface, AnImplementation]()
 
-	circle := Circle{}
+	circle := NewCircle()
 
 	tests := []struct {
 		name      string
@@ -64,7 +71,7 @@ func TestSummon(t *testing.T) {
 		},
 		{
 			name:      "Summon an unregistered type fails",
-			wantErr:   ErrInvalidReturnType,
+			wantErr:   ErrInvalidSummonerMethod,
 			runSummon: func() (any, error) { return circle.Summon[string]() },
 		},
 		{
@@ -76,6 +83,11 @@ func TestSummon(t *testing.T) {
 			name:      "Summon pointer",
 			wantType:  reflect.TypeOf(new(Pointer{})),
 			runSummon: func() (any, error) { return circle.Summon[*Pointer]() },
+		},
+		{
+			name:      "Too many summoner methods fails",
+			wantErr:   ErrInvalidSummonerMethod,
+			runSummon: func() (any, error) { return circle.Summon[TwoSummonMethods]() },
 		},
 	}
 	for _, tc := range tests {
@@ -91,6 +103,67 @@ func TestSummon(t *testing.T) {
 
 			gotType := reflect.TypeOf(got)
 
+			if gotType != tc.wantType {
+				t.Errorf("Summon returned type %s, %s expected", gotType, tc.wantType)
+			}
+		})
+	}
+}
+
+func (p *Pointer) Summon() *Pointer {
+	return new(Pointer{})
+}
+
+type Singleton string
+
+func (s *Singleton) SummonSingleton() *Singleton {
+	return new(Singleton(rand.Text()))
+}
+
+type InvalidSingleton struct{}
+
+// Singletons should _always_ be pointers
+func (s InvalidSingleton) SummonSingleton() InvalidSingleton {
+	return InvalidSingleton{}
+}
+
+func TestSummonSingleton(t *testing.T) {
+	circle := NewCircle()
+
+	tests := []struct {
+		name      string
+		wantType  reflect.Type
+		wantErr   error
+		runSummon func() (any, error)
+	}{
+		{
+			name:      "Summon singleton",
+			wantType:  reflect.TypeOf(new(Singleton(""))),
+			runSummon: func() (any, error) { return circle.Summon[*Singleton]() },
+		},
+		{
+			name:      "Summon singleton fails if pointer not provided",
+			wantErr:   ErrInvalidSummonerMethod,
+			runSummon: func() (any, error) { return circle.Summon[InvalidSingleton]() },
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotFirst, err := tc.runSummon()
+			gotSecond, err := tc.runSummon()
+
+			if err != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Errorf("got error (%v), wanted (%v)", err, tc.wantErr)
+				}
+				return
+			}
+
+			if gotFirst != gotSecond {
+				t.Errorf("%v != %v", gotFirst, gotSecond)
+			}
+
+			gotType := reflect.TypeOf(gotFirst)
 			if gotType != tc.wantType {
 				t.Errorf("Summon returned type %s, %s expected", gotType, tc.wantType)
 			}

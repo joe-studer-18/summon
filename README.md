@@ -12,7 +12,7 @@ There are some great options out there for DI frameworks in Go - but they all fe
 missing a little bit of that magic that I'd come to expect from tools like Guice, back when I was writing 
 Java. 
 
-I make no illusions that `circle` would make the authors of Golang happy - I haven't even looked to see what
+I make no illusions that `summon` would make the authors of Golang happy - I haven't even looked to see what
 their official stance is. So, if by some ill-fated fortune you're one of those maintainers, and reading this, 
 hey I love your work, but imma do this regardless.
 
@@ -81,6 +81,23 @@ circle := NewCircle()
 
 a := circle.Summon[AnInterface]()
 ```
+
+### Singletons
+
+Singletons get a special case - instead of using the normal `Summon`, you now
+need `SummonSingleton`. Take the snippet below:
+
+```golang
+type Singleton struct {}
+
+func (*Singleton) SummonSingleton() *Singleton {
+    return new(Singleton{})
+}
+```
+
+Note that we're using a pointer here - that's required! A `SummonSingleton`
+that provides a direct object will throw an error when you attempt
+to `circle.Summon` it.
 
 ## Contributors Guide
 
