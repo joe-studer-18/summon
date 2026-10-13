@@ -7,67 +7,114 @@ import (
 )
 
 const (
-	provideMethodName          = "Summon"
-	provideSingletonMethodName = "SummonSingleton"
+	summonMethodName          = "Summon"
+	summonSingletonMethodName = "SummonSingleton"
 )
 const invalidReturnTypeErr = "%s.%s does not return a type of %s"
 
-var ErrInvalidReturnType = errors.New("invalid return type")
+var ErrInvalidSummonerMethod = errors.New("invalid summon method")
+var ErrNoSummoner = errors.New("no summoner")
 
-type Circle struct{}
+type Circle struct {
+	singletons map[reflect.Type]reflect.Value
+}
+
+func NewCircle() Circle {
+	return Circle{make(map[reflect.Type]reflect.Value)}
+}
 
 func (inj *Circle) Summon[T any]() (T, error) {
 	summoned, err := inj.summon(reflect.TypeFor[T]())
 	if err != nil {
-		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
+		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), summonMethodName, reflect.TypeOf(*new(T)))
 		var zero T
-		return zero, fmt.Errorf("%w: %s", ErrInvalidReturnType, errString)
+		return zero, fmt.Errorf("%w: %s", ErrInvalidSummonerMethod, errString)
 	}
 	returnable, ok := toValue[T](summoned)
 	if !ok {
-		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
+		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), summonMethodName, reflect.TypeOf(*new(T)))
 		var zero T
-		return zero, fmt.Errorf("%w: %s", ErrInvalidReturnType, errString)
+		return zero, fmt.Errorf("%w: %s", ErrInvalidSummonerMethod, errString)
 	}
 	return returnable, nil
 }
 
-func (inj *Circle) summon(t reflect.Type) (reflect.Value, error) {
+func (circle *Circle) summon(t reflect.Type) (reflect.Value, error) {
 	if _, ok := bindMap[t]; ok {
 		t = bindMap[t]
 	}
-	provideable := reflect.New(t)
-	if t.Kind() == reflect.Pointer {
-		// Strip the outer pointer off before making the provideable
-		provideable = reflect.New(t.Elem())
+	if s, ok := circle.singletons[t]; ok {
+		return s, nil
 	}
-	providerMethod := provideable.MethodByName(provideMethodName)
-	if !providerMethod.IsValid() {
-		errString := fmt.Sprintf("%s not implemented for type T <%s>", provideMethodName, provideable.String())
-		return reflect.Value{}, errors.New(errString)
+	summonable := reflect.New(t)
+	if t.Kind() == reflect.Pointer {
+		// Strip the outer pointer off before making the summonable
+		summonable = reflect.New(t.Elem())
+	}
+	summonerMethod, isSingleton, err := getSummonerMethod(summonable)
+	if err != nil {
+		return reflect.Value{}, err
 	}
 
-	numArgs := providerMethod.Type().NumIn()
+	numArgs := summonerMethod.Type().NumIn()
 	args := make([]reflect.Value, numArgs)
 	if numArgs == 0 {
-		rawReturnable := providerMethod.Call(args)
-		return rawReturnable[0], nil
+		rawReturnable := summonerMethod.Call(args)[0]
+		if isSingleton {
+			circle.singletons[t] = rawReturnable
+		}
+		return rawReturnable, nil
 	}
 	for i := range numArgs {
-		argType := providerMethod.Type().In(i)
+		argType := summonerMethod.Type().In(i)
 		var err error
 		if a, ok := bindMap[argType]; ok {
 			argType = a
 		}
-		args[i], err = inj.summon(argType)
+		args[i], err = circle.summon(argType)
+
+		if isSingleton {
+			circle.singletons[t] = args[i]
+		}
 		if err != nil {
 			return reflect.Value{}, err
 		}
 	}
-	return providerMethod.Call(args)[0], nil
+	return summonerMethod.Call(args)[0], nil
+}
+
+func getSummonerMethod(summonable reflect.Value) (reflect.Value, bool, error) {
+	summonerMethod := summonable.MethodByName(summonMethodName)
+	singletonSummonerMethod := summonable.MethodByName(summonSingletonMethodName)
+	if summonerMethod.IsValid() && singletonSummonerMethod.IsValid() {
+		errString := fmt.Sprintf("%s not implemented for type T <%s>", summonMethodName, summonable.String())
+		return reflect.Value{}, false, errors.New(errString)
+	}
+	if !summonerMethod.IsValid() && !singletonSummonerMethod.IsValid() {
+		err := fmt.Errorf("%w: no summoner method for type T <%s>. Implement one of (%s, %s)", ErrNoSummoner, summonable.String(), summonMethodName, summonSingletonMethodName)
+		return reflect.Value{}, false, err
+	}
+	// exactly one summoner is implemented
+	if summonerMethod.IsValid() {
+		return summonerMethod, false, nil
+	} else {
+		if !validateSingletonSummonerMethod(singletonSummonerMethod) {
+			err := fmt.Errorf("%w: %s.%s return type of %s is not a pointer", ErrInvalidSummonerMethod, summonable.String(), singletonSummonerMethod, singletonSummonerMethod.Type().Out(0))
+			return reflect.Value{}, false, err
+		}
+		return singletonSummonerMethod, true, nil
+	}
+}
+
+func validateSingletonSummonerMethod(method reflect.Value) bool {
+	returnType := method.Type().Out(0)
+	if returnType.Kind() != reflect.Pointer {
+		return false
+	}
+	return true
 }
 
 func toValue[T any](v reflect.Value) (T, bool) {
-	returnable, ok := v.Convert(reflect.TypeFor[T]()).Interface().(T)
+	returnable, ok := v.Interface().(T)
 	return returnable, ok
 }
