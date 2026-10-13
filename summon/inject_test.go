@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+type AnInterface interface {
+	Do() string
+}
+
+type AnImplementation struct{}
+
+func (a AnImplementation) Do() string {
+	return "AnImplementation"
+}
+
+var _ = Binds[AnInterface, AnImplementation]()
+
+func (a AnImplementation) DiGoProvide() AnImplementation {
+	return AnImplementation{}
+}
+
 type RootNode struct {
 	name string
 }
@@ -16,8 +32,8 @@ func (f RootNode) Process() bool {
 	return true
 }
 
-func (f RootNode) DiGoProvide(name LeafNode) RootNode {
-	return RootNode{string(name)}
+func (f RootNode) DiGoProvide(name LeafNode, i AnInterface) RootNode {
+	return RootNode{fmt.Sprintf("%s.%s", string(name), i.Do())}
 }
 
 type LeafNode string
