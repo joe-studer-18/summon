@@ -1,9 +1,10 @@
 package summon
 
 import (
-	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type BindsAnInterface interface {
@@ -34,7 +35,7 @@ func TestBinds(t *testing.T) {
 		runBind   func() error
 		runSummon func() (any, error)
 		wantType  reflect.Type
-		wantErr   error
+		wantPanic error
 	}{
 		{
 			name:      "ok",
@@ -58,23 +59,23 @@ func TestBinds(t *testing.T) {
 				return Binds[BindsAnInterface, string]()
 			},
 			runSummon: func() (any, error) { return circle.Summon[NestedDepOnInterface]() },
-			wantErr:   ErrBindCollision,
+			wantPanic: ErrBindCollision,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.wantPanic != nil {
+				assert.Panics(t, func() { tc.runBind() })
+				return
+			}
 			err := tc.runBind()
 			if err != nil {
-				if !errors.Is(err, tc.wantErr) {
-					t.Errorf("summoned error (%v), wanted (%v)", err, tc.wantErr)
-				}
+				t.Errorf("got error (%v), wanted (%v)", err, nil)
 			} else {
 				summoned, err := tc.runSummon()
 
 				if err != nil {
-					if !errors.Is(err, tc.wantErr) {
-						t.Errorf("summoned error (%v), wanted (%v)", err, tc.wantErr)
-					}
+					t.Errorf("got error (%v), wanted (%v)", err, nil)
 				} else {
 					summonedType := reflect.TypeOf(summoned)
 
