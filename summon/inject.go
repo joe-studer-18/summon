@@ -30,6 +30,9 @@ func (inj *Injector) Get[T any]() (T, error) {
 }
 
 func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
+	if _, ok := bindMap[t]; ok {
+		t = bindMap[t]
+	}
 	provideable := reflect.New(t)
 	providerMethod := provideable.MethodByName(provideMethodName)
 	if !providerMethod.IsValid() {

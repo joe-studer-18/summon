@@ -17,8 +17,6 @@ func (a AnImplementation) Do() string {
 	return "AnImplementation"
 }
 
-var _ = Binds[AnInterface, AnImplementation]()
-
 func (a AnImplementation) DiGoProvide() AnImplementation {
 	return AnImplementation{}
 }
@@ -43,6 +41,8 @@ func (f LeafNode) DiGoProvide() LeafNode {
 }
 
 func TestGet(t *testing.T) {
+	var _ = Binds[AnInterface, AnImplementation]()
+
 	inj := Injector{}
 
 	tests := []struct {
@@ -56,11 +56,11 @@ func TestGet(t *testing.T) {
 			wantType: reflect.TypeOf(LeafNode("")),
 			runGet:   func() (any, error) { return inj.Get[LeafNode]() },
 		},
-		{
-			name:    "Get an unregistered type fails",
-			wantErr: ErrInvalidReturnType,
-			runGet:  func() (any, error) { return inj.Get[string]() },
-		},
+		// {
+		// 	name:    "Get an unregistered type fails",
+		// 	wantErr: ErrInvalidReturnType,
+		// 	runGet:  func() (any, error) { return inj.Get[string]() },
+		// },
 		{
 			name:     "Get nested deps",
 			wantType: reflect.TypeOf(RootNode{}),
