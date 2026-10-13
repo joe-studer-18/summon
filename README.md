@@ -1,6 +1,6 @@
-# digo
+# Summon
 
-A Dependency Injection framework for Golang - thus, digo.
+A magical Dependency Injection framework for Go.
 
 ## Why
 
@@ -12,22 +12,86 @@ There are some great options out there for DI frameworks in Go - but they all fe
 missing a little bit of that magic that I'd come to expect from tools like Guice, back when I was writing 
 Java. 
 
-I make no illusions that `digo` would make the authors of Golang happy - I haven't even looked to see what
+I make no illusions that `circle` would make the authors of Golang happy - I haven't even looked to see what
 their official stance is. So, if by some ill-fated fortune you're one of those maintainers, and reading this, 
 hey I love your work, but imma do this regardless.
 
-## AI Stance
+## Usage
 
-I'm not accepting AI code, and I won't be using it in this project. I _will_ use AI to learn - it's a solid semantic 
+### Registering your type with Summon
+
+```golang
+type Foo struct{}
+
+func (f Foo) Summon() Foo {
+    return Foo{}
+}
+
+type Bar struct{
+    foo Foo
+}
+
+// Circle will find Foo and provide it _like magic_
+func (b Bar) Summon(f Foo) Bar {
+    return Bar{f}
+}
+```
+
+### Summoning your type
+
+```golang
+// 1. Create a circle
+circle := NewCircle
+
+// 2. Summon what you need!
+s := circle.Summon[Foo]()
+```
+
+### Binding your type
+
+At times, you may need a more advanced incantation - perhaps to 
+summon an object you don't own, or to provide an implementation of
+an interface. In these cases, you'll want to `Bind` the
+implementation to the interface.
+
+For example:
+
+```golang
+type AnInterface interface {
+	Do() string
+}
+
+type AnImplementation struct{}
+
+var _ = Binds[AnInterface, AnImplementation]()
+
+func (a AnImplementation) Summon() AnImplementation {
+	return AnImplementation{}
+}
+
+func (a AnImplementation) Do() string {
+	return "AnImplementation"
+}
+```
+
+From there, summoning your implementation is no different:
+
+```golang
+circle := NewCircle()
+
+a := circle.Summon[AnInterface]()
+```
+
+## Contributors Guide
+
+### AI Stance
+
+I'm not accepting AI code, and I won't be using it in this project. I _will_ use AI to learn - it's a solid 
 search tool. But every commit, ever line, is _artisinal_. I'm doing this for me.
 
-## Open Features
+### Raising a PR
 
-These are features that are needed to get parity with other DI frameworks, while keeping the magic.
+Before raising a PR, please do the following:
 
-* Support for interfaces
-* Tests!
-* Singletons
-* Caching/Performance optimizations
-* Name based bindings, so you can provide multiple versions of a thing
-* Sensible path for third-party types (probably factories)
+* Open and self-assign an issue describing the change you'd like to make
+* Add appropriate test coverage to your change. If it's testable, it's best to have coverage on it

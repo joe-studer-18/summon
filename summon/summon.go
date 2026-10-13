@@ -6,21 +6,24 @@ import (
 	"reflect"
 )
 
-const provideMethodName = "DiGoProvide"
+const (
+	provideMethodName          = "Summon"
+	provideSingletonMethodName = "SummonSingleton"
+)
 const invalidReturnTypeErr = "%s.%s does not return a type of %s"
 
 var ErrInvalidReturnType = errors.New("invalid return type")
 
-type Injector struct{}
+type Circle struct{}
 
-func (inj *Injector) Get[T any]() (T, error) {
-	got, err := inj.get(reflect.TypeFor[T]())
+func (inj *Circle) Summon[T any]() (T, error) {
+	summoned, err := inj.summon(reflect.TypeFor[T]())
 	if err != nil {
 		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
 		var zero T
 		return zero, fmt.Errorf("%w: %s", ErrInvalidReturnType, errString)
 	}
-	returnable, ok := toValue[T](got)
+	returnable, ok := toValue[T](summoned)
 	if !ok {
 		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), provideMethodName, reflect.TypeOf(*new(T)))
 		var zero T
@@ -29,7 +32,7 @@ func (inj *Injector) Get[T any]() (T, error) {
 	return returnable, nil
 }
 
-func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
+func (inj *Circle) summon(t reflect.Type) (reflect.Value, error) {
 	if _, ok := bindMap[t]; ok {
 		t = bindMap[t]
 	}
@@ -56,7 +59,7 @@ func (inj *Injector) get(t reflect.Type) (reflect.Value, error) {
 		if a, ok := bindMap[argType]; ok {
 			argType = a
 		}
-		args[i], err = inj.get(argType)
+		args[i], err = inj.summon(argType)
 		if err != nil {
 			return reflect.Value{}, err
 		}
