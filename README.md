@@ -41,7 +41,7 @@ func (b Bar) Summon(f Foo) Bar {
 
 ```golang
 // 1. Create a circle
-circle := NewCircle
+circle := NewCircle()
 
 // 2. Summon what you need!
 s := circle.Summon[Foo]()

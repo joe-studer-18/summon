@@ -18,6 +18,6 @@ func Binds[I any, T any]() error {
 		bindMap[interfaceType] = implType
 		return nil
 	} else {
-		return fmt.Errorf("%w: %v already bound to %v. Binding to %T results in a collision.", ErrBindCollision, reflect.TypeOf(new(I)).Elem(), bindMap[interfaceType].String(), *new(T))
+		panic(fmt.Errorf("%w: %v already bound to %v. Binding to %T results in a collision.", ErrBindCollision, reflect.TypeOf(new(I)).Elem(), bindMap[interfaceType].String(), *new(T)))
 	}
 }
