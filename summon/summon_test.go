@@ -140,7 +140,7 @@ func (s *SingletonWithDep) SummonSingleton(n LeafNode) *SingletonWithDep {
 	return new(SingletonWithDep{n})
 }
 
-func TestSummonSingleton(t *testing.T) {
+func TestSummon_Singleton(t *testing.T) {
 	circle := NewCircle()
 
 	tests := []struct {
@@ -194,7 +194,7 @@ func TestSummonSingleton(t *testing.T) {
 	}
 }
 
-func TestSummonSingleton_ThreadSafe(t *testing.T) {
+func TestSummon_Singleton_ThreadSafe(t *testing.T) {
 	threadtest.ResetCounters()
 	circle := NewCircle()
 	t.Run("Threadsafe summon singleton", func(t *testing.T) {
@@ -232,7 +232,7 @@ func TestSummonSingleton_ThreadSafe(t *testing.T) {
 	})
 }
 
-func TestNestedSummonSingleton_ThreadSafe(t *testing.T) {
+func TestSummon_NestedSingleton_ThreadSafe(t *testing.T) {
 	threadtest.ResetCounters()
 	circle := NewCircle()
 	t.Run("Nested threadsafe summon singleton", func(t *testing.T) {
@@ -276,4 +276,60 @@ func TestNestedSummonSingleton_ThreadSafe(t *testing.T) {
 			t.Errorf("Constructor for threadtest.RootAtomicSingleton called %v times, expected 1.", threadtest.GetLeafCounter())
 		}
 	})
+}
+
+type A struct{}
+
+func (a A) Summon(b B) A {
+	return A{}
+}
+
+type B struct {
+	a A
+}
+
+func (b B) Summon(_a A) B {
+	return B{a: _a}
+}
+
+type APrime struct {
+	a A
+}
+
+func (a APrime) Summon(_a A) APrime {
+	return APrime{a: _a}
+}
+
+func TestSummon_CycleDetection(t *testing.T) {
+	circle := NewCircle()
+
+	tests := []struct {
+		name      string
+		wantErr   error
+		runSummon func() (any, error)
+	}{
+		{
+			name:      "Detect cycle",
+			wantErr:   fmt.Errorf("%w: summon.A -> summon.B -> summon.A", ErrCircularDependency),
+			runSummon: func() (any, error) { return circle.Summon[A]() },
+		},
+		{
+			name:      "Detect cycle - ignoring types out of cycle",
+			wantErr:   fmt.Errorf("%w: summon.A -> summon.B -> summon.A", ErrCircularDependency),
+			runSummon: func() (any, error) { return circle.Summon[APrime]() },
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a, err := tc.runSummon()
+
+			if !errors.Is(err, ErrCircularDependency) {
+				t.Errorf("Summoning type A should return nil, error - instead got %s, %s", a, err)
+			}
+
+			if err.Error() != tc.wantErr.Error() {
+				t.Errorf("Incorrect error string in summoning type A, expected %s, got %s", tc.wantErr, err)
+			}
+		})
+	}
 }
