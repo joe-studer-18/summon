@@ -18,7 +18,7 @@ jobs:
           go-version: '1.27.1'
 
       - name: Build
-        run: go build -v ./summon
+        run: go build -tags unit -v ./...
 
       - name: Test
-        run: go test -v ./summon
+        run: go test -tags unit -v ./...

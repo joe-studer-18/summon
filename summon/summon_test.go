@@ -1,3 +1,5 @@
+//go:build unit
+
 package summon
 
 import (
@@ -5,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
+
+	"github.com/joe-studer-18/summon/summon/threadtest"
 )
 
 type AnInterface interface {
@@ -187,4 +192,88 @@ func TestSummonSingleton(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSummonSingleton_ThreadSafe(t *testing.T) {
+	threadtest.ResetCounters()
+	circle := NewCircle()
+	t.Run("Threadsafe summon singleton", func(t *testing.T) {
+		const summons int = 100
+		c := make(chan struct{})
+
+		got := make([]*threadtest.LeafAtomicSingleton, summons)
+
+		var ready, done sync.WaitGroup
+		ready.Add(summons)
+		done.Add(summons)
+		for i := range summons {
+			go func() {
+				defer done.Done()
+				ready.Done()
+
+				// Wait for something to write to the channel
+				<-c
+
+				var err error
+				got[i], err = circle.Summon[*threadtest.LeafAtomicSingleton]()
+				if err != nil {
+					t.Errorf("Got error (%v), expected none", err)
+				}
+			}()
+		}
+
+		ready.Wait()
+		close(c)
+		done.Wait()
+
+		if threadtest.GetLeafCounter() != 1 {
+			t.Errorf("Constructor for threadtest.LeafAtomicSingleton called %v times, expected 1.", threadtest.GetLeafCounter())
+		}
+	})
+}
+
+func TestNestedSummonSingleton_ThreadSafe(t *testing.T) {
+	threadtest.ResetCounters()
+	circle := NewCircle()
+	t.Run("Nested threadsafe summon singleton", func(t *testing.T) {
+		const summons int = 100
+		c := make(chan struct{})
+
+		gotLeaf := make([]*threadtest.LeafAtomicSingleton, summons)
+		gotRoot := make([]*threadtest.RootAtomicSingleton, summons)
+
+		var ready, done sync.WaitGroup
+		ready.Add(summons)
+		done.Add(summons)
+		for i := range summons {
+			go func() {
+				defer done.Done()
+				ready.Done()
+
+				// Wait for something to write to the channel
+				<-c
+
+				var err error
+				if i%2 == 0 {
+					gotLeaf[i], err = circle.Summon[*threadtest.LeafAtomicSingleton]()
+				} else {
+					gotRoot[i], err = circle.Summon[*threadtest.RootAtomicSingleton]()
+				}
+				if err != nil {
+					t.Errorf("Got error (%v), expected none", err)
+				}
+			}()
+		}
+
+		ready.Wait()
+		close(c)
+		done.Wait()
+
+		if threadtest.GetLeafCounter() != 1 {
+			t.Errorf("Constructor for threadtest.LeafAtomicSingleton called %v times, expected 1.", threadtest.GetLeafCounter())
+		}
+		if threadtest.GetRootCounter() != 1 {
+			t.Errorf("Constructor for threadtest.RootAtomicSingleton called %v times, expected 1.", threadtest.GetLeafCounter())
+		}
+	})
 }
