@@ -26,9 +26,8 @@ func NewCircle() Circle {
 func (circle *Circle) Summon[T any]() (T, error) {
 	summoned, err := circle.summon(reflect.TypeFor[T]())
 	if err != nil {
-		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), summonMethodName, reflect.TypeOf(*new(T)))
 		var zero T
-		return zero, fmt.Errorf("%w: %s", ErrInvalidSummonerMethod, errString)
+		return zero, err
 	}
 	returnable, ok := toValue[T](summoned)
 	if !ok {
@@ -88,11 +87,11 @@ func getSummonerMethod(summonable reflect.Value) (reflect.Value, bool, error) {
 	summonerMethod := summonable.MethodByName(summonMethodName)
 	singletonSummonerMethod := summonable.MethodByName(summonSingletonMethodName)
 	if summonerMethod.IsValid() && singletonSummonerMethod.IsValid() {
-		errString := fmt.Sprintf("%s not implemented for type T <%s>", summonMethodName, summonable.String())
-		return reflect.Value{}, false, errors.New(errString)
+		err := fmt.Errorf("%w: %s and %s implemented for type T %s. Implement at most one summoner method.", ErrInvalidSummonerMethod, summonMethodName, summonSingletonMethodName, summonable.String())
+		return reflect.Value{}, false, err
 	}
 	if !summonerMethod.IsValid() && !singletonSummonerMethod.IsValid() {
-		err := fmt.Errorf("%w: no summoner method for type T <%s>. Implement one of (%s, %s)", ErrNoSummoner, summonable.String(), summonMethodName, summonSingletonMethodName)
+		err := fmt.Errorf("%w: no summoner method for type T %s. Implement one of (%s, %s)", ErrNoSummoner, summonable.String(), summonMethodName, summonSingletonMethodName)
 		return reflect.Value{}, false, err
 	}
 	// exactly one summoner is implemented
