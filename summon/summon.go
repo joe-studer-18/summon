@@ -23,8 +23,8 @@ func NewCircle() Circle {
 	return Circle{make(map[reflect.Type]reflect.Value)}
 }
 
-func (inj *Circle) Summon[T any]() (T, error) {
-	summoned, err := inj.summon(reflect.TypeFor[T]())
+func (circle *Circle) Summon[T any]() (T, error) {
+	summoned, err := circle.summon(reflect.TypeFor[T]())
 	if err != nil {
 		errString := fmt.Sprintf(invalidReturnTypeErr, reflect.TypeOf(*new(T)), summonMethodName, reflect.TypeOf(*new(T)))
 		var zero T
@@ -59,11 +59,11 @@ func (circle *Circle) summon(t reflect.Type) (reflect.Value, error) {
 	numArgs := summonerMethod.Type().NumIn()
 	args := make([]reflect.Value, numArgs)
 	if numArgs == 0 {
-		rawReturnable := summonerMethod.Call(args)[0]
+		returnable := summonerMethod.Call(args)[0]
 		if isSingleton {
-			circle.singletons[t] = rawReturnable
+			circle.singletons[t] = returnable
 		}
-		return rawReturnable, nil
+		return returnable, nil
 	}
 	for i := range numArgs {
 		argType := summonerMethod.Type().In(i)
@@ -73,14 +73,15 @@ func (circle *Circle) summon(t reflect.Type) (reflect.Value, error) {
 		}
 		args[i], err = circle.summon(argType)
 
-		if isSingleton {
-			circle.singletons[t] = args[i]
-		}
 		if err != nil {
 			return reflect.Value{}, err
 		}
 	}
-	return summonerMethod.Call(args)[0], nil
+	returnable := summonerMethod.Call(args)[0]
+	if isSingleton {
+		circle.singletons[t] = returnable
+	}
+	return returnable, nil
 }
 
 func getSummonerMethod(summonable reflect.Value) (reflect.Value, bool, error) {

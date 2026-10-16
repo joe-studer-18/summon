@@ -127,6 +127,14 @@ func (s InvalidSingleton) SummonSingleton() InvalidSingleton {
 	return InvalidSingleton{}
 }
 
+type SingletonWithDep struct {
+	node LeafNode
+}
+
+func (s *SingletonWithDep) SummonSingleton(n LeafNode) *SingletonWithDep {
+	return new(SingletonWithDep{n})
+}
+
 func TestSummonSingleton(t *testing.T) {
 	circle := NewCircle()
 
@@ -142,14 +150,24 @@ func TestSummonSingleton(t *testing.T) {
 			runSummon: func() (any, error) { return circle.Summon[*Singleton]() },
 		},
 		{
+			name:      "Summon singleton with dep",
+			wantType:  reflect.TypeOf(new(SingletonWithDep{})),
+			runSummon: func() (any, error) { return circle.Summon[*SingletonWithDep]() },
+		},
+		{
 			name:      "Summon singleton fails if pointer not provided",
 			wantErr:   ErrInvalidSummonerMethod,
 			runSummon: func() (any, error) { return circle.Summon[InvalidSingleton]() },
 		},
+		{
+			name:      "Summon singleton fails if requesting a value instead of a pointer",
+			wantErr:   ErrInvalidSummonerMethod,
+			runSummon: func() (any, error) { return circle.Summon[Singleton]() },
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			gotFirst, err := tc.runSummon()
+			gotFirst, _ := tc.runSummon()
 			gotSecond, err := tc.runSummon()
 
 			if err != nil {
@@ -160,7 +178,7 @@ func TestSummonSingleton(t *testing.T) {
 			}
 
 			if gotFirst != gotSecond {
-				t.Errorf("%v != %v", gotFirst, gotSecond)
+				t.Errorf("Summoned types are not identical: %v != %v", &gotFirst, &gotSecond)
 			}
 
 			gotType := reflect.TypeOf(gotFirst)
