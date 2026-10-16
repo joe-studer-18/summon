@@ -71,7 +71,7 @@ func TestSummon(t *testing.T) {
 		},
 		{
 			name:      "Summon an unregistered type fails",
-			wantErr:   ErrInvalidSummonerMethod,
+			wantErr:   ErrNoSummoner,
 			runSummon: func() (any, error) { return circle.Summon[string]() },
 		},
 		{
