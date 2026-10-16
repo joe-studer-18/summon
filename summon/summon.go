@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 const (
@@ -17,13 +18,17 @@ var ErrNoSummoner = errors.New("no summoner")
 
 type Circle struct {
 	singletons map[reflect.Type]reflect.Value
+	mu         sync.Mutex
 }
 
 func NewCircle() Circle {
-	return Circle{make(map[reflect.Type]reflect.Value)}
+	return Circle{singletons: make(map[reflect.Type]reflect.Value)}
 }
 
 func (circle *Circle) Summon[T any]() (T, error) {
+	circle.mu.Lock()
+	defer circle.mu.Unlock()
+
 	summoned, err := circle.summon(reflect.TypeFor[T]())
 	if err != nil {
 		var zero T
