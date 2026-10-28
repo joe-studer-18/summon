@@ -58,7 +58,7 @@ For example:
 
 ```golang
 type AnInterface interface {
-	Do() string
+    Do() string
 }
 
 type AnImplementation struct{}
@@ -66,11 +66,11 @@ type AnImplementation struct{}
 var _ = Binds[AnInterface, AnImplementation]()
 
 func (a AnImplementation) Summon() AnImplementation {
-	return AnImplementation{}
+    return AnImplementation{}
 }
 
 func (a AnImplementation) Do() string {
-	return "AnImplementation"
+    return "AnImplementation"
 }
 ```
 
