@@ -1,0 +1,12 @@
+{
+  "go.buildFlags": [
+    "-tags=unit"
+  ],
+  "go.testTags": "unit",
+  "go.testFlags": [
+    "-tags=unit"
+  ],
+  "gopls": {
+    "build.buildFlags": ["-tags=unit"],
+  }
+}
